@@ -1,0 +1,2476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monaco Editor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs/loader.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            background-color: #1e1e1e;
+            color: #ffffff;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .top-bar {
+            background-color: #333333;
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #454545;
+        }
+
+        .activity-bar {
+            width: 48px;
+            background-color: #333333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 8px 0;
+            border-right: 1px solid #454545;
+        }
+
+        .activity-bar-icon {
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #858585;
+            transition: all 0.2s;
+        }
+
+        .activity-bar-icon:hover {
+            color: #ffffff;
+            background-color: #454545;
+        }
+
+        .activity-bar-icon.active {
+            color: #ffffff;
+            background-color: #454545;
+            border-left: 2px solid #007acc;
+        }
+
+        .activity-bar-icon svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .panels-container {
+            display: flex;
+            flex-direction: row;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 300px;
+            background-color: #252526;
+            border-right: 1px solid #454545;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+
+        .sidebar-header {
+            padding: 8px 16px;
+            font-size: 14px;
+            color: #cccccc;
+            border-bottom: 1px solid #454545;
+        }
+
+        .file-explorer {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 0;
+        }
+
+        .file-item {
+            padding: 4px 8px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            color: #cccccc;
+            transition: background-color 0.2s;
+        }
+
+        .file-item:hover {
+            background-color: #2a2d2e;
+        }
+
+        .file-item.selected {
+            background-color: #37373d;
+        }
+
+        .file-item svg {
+            width: 16px;
+            height: 16px;
+            margin-right: 8px;
+        }
+
+        .editor-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0; /* Prevents flex item from overflowing */
+            position: relative;
+        }
+
+        .editor-tabs {
+            background-color: #252526;
+            border-bottom: 1px solid #454545;
+            display: flex;
+            align-items: center;
+            padding: 0 8px;
+            height: 35px;
+            overflow-x: auto;
+        }
+
+        .editor-tab {
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            height: 35px;
+            background-color: #2d2d2d;
+            border-right: 1px solid #454545;
+            color: #cccccc;
+            cursor: pointer;
+            user-select: none;
+            min-width: 120px;
+            max-width: 200px;
+        }
+
+        .editor-tab.active {
+            background-color: #1e1e1e;
+            color: #ffffff;
+        }
+
+        .editor-tab .close-button {
+            margin-left: 8px;
+            opacity: 0.7;
+            padding: 2px;
+            border-radius: 3px;
+        }
+
+        .editor-tab .close-button:hover {
+            background-color: #454545;
+            opacity: 1;
+        }
+
+        #editor {
+            flex: 1;
+            width: 100%;
+        }
+
+        .status-bar {
+            background-color: #007acc;
+            color: #ffffff;
+            padding: 4px 8px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+        }
+
+        .chat-panel {
+            width: 300px;
+            min-width: 200px;
+            max-width: 800px;
+            background-color: #252526;
+            border-left: 1px solid #454545;
+            display: none;
+            flex-shrink: 0;
+            height: 100%;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .chat-panel.active {
+            display: flex;
+        }
+
+        .chat-panel-resizer {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background-color: transparent;
+            cursor: ew-resize;
+            transition: background-color 0.2s;
+        }
+
+        .chat-panel-resizer:hover,
+        .chat-panel-resizer.resizing {
+            background-color: #007acc;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            height: calc(100% - 100px);
+        }
+
+        .chat-message {
+            padding: 8px 12px;
+            border-radius: 8px;
+            max-width: 85%;
+            word-wrap: break-word;
+            line-height: 1.4;
+            font-size: 13px;
+            position: relative;
+            display: inline-block;
+            white-space: pre-wrap;
+        }
+
+        .chat-message.user {
+            background-color: #0e639c;
+            margin-left: auto;
+            color: white;
+            border-top-right-radius: 2px;
+        }
+
+        .chat-message.assistant {
+            background-color: #2d2d2d;
+            margin-right: auto;
+            color: #cccccc;
+            border-top-left-radius: 2px;
+        }
+
+        .chat-message.loading {
+            background-color: #2d2d2d;
+            color: #858585;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .chat-message.loading::after {
+            content: '';
+            width: 12px;
+            height: 12px;
+            border: 2px solid #858585;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .chat-message::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            width: 8px;
+            height: 8px;
+            background: inherit;
+        }
+
+        .chat-message.user::before {
+            right: -4px;
+            transform: rotate(45deg);
+        }
+
+        .chat-message.assistant::before {
+            left: -4px;
+            transform: rotate(45deg);
+        }
+
+        .chat-input {
+            padding: 12px 16px;
+            border-top: 1px solid #454545;
+            background-color: #252526;
+            position: sticky;
+            bottom: 0;
+            z-index: 1;
+        }
+
+        .chat-input input {
+            width: 100%;
+            padding: 8px 12px;
+            background-color: #3c3c3c;
+            border: 1px solid #454545;
+            color: #ffffff;
+            border-radius: 4px;
+            font-size: 13px;
+            box-sizing: border-box;
+        }
+
+        .chat-input input:focus {
+            outline: none;
+            border-color: #007acc;
+        }
+
+        .chat-input input::placeholder {
+            color: #858585;
+        }
+
+        .terminal-panel {
+            height: 300px;
+            background-color: #1e1e1e;
+            border-top: 1px solid #454545;
+            display: none;
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+        }
+
+        .terminal-panel.active {
+            display: block;
+        }
+
+        .terminal-header {
+            padding: 8px 16px;
+            background-color: #252526;
+            border-bottom: 1px solid #454545;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .terminal-content {
+            padding: 8px;
+            font-family: 'Consolas', monospace;
+            font-size: 14px;
+            color: #cccccc;
+            height: calc(100% - 40px);
+            overflow-y: auto;
+        }
+
+        .terminal-input {
+            display: flex;
+            align-items: center;
+            padding: 4px 8px;
+        }
+
+        .terminal-prompt {
+            color: #0d9373;
+            margin-right: 8px;
+        }
+
+        .terminal-input input {
+            flex: 1;
+            background: none;
+            border: none;
+            color: #cccccc;
+            font-family: 'Consolas', monospace;
+            font-size: 14px;
+            outline: none;
+        }
+
+        /* Code block styles */
+        .chat-message pre {
+            background-color: #1e1e1e;
+            border-radius: 4px;
+            padding: 12px;
+            margin: 8px 0;
+            overflow-x: auto;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        }
+
+        .chat-message code {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.4;
+            color: #d4d4d4;
+        }
+
+        /* Syntax highlighting colors */
+        .chat-message .language-javascript,
+        .chat-message .language-js,
+        .chat-message .language-html,
+        .chat-message .language-css,
+        .chat-message .language-json,
+        .chat-message .language-python,
+        .chat-message .language-java,
+        .chat-message .language-cpp,
+        .chat-message .language-c,
+        .chat-message .language-cs,
+        .chat-message .language-go,
+        .chat-message .language-rs,
+        .chat-message .language-rb,
+        .chat-message .language-php {
+            color: #d4d4d4;
+        }
+
+        .chat-message .keyword { color: #569cd6; }
+        .chat-message .string { color: #ce9178; }
+        .chat-message .comment { color: #6a9955; }
+        .chat-message .function { color: #dcdcaa; }
+        .chat-message .number { color: #b5cea8; }
+        .chat-message .operator { color: #d4d4d4; }
+        .chat-message .class { color: #4ec9b0; }
+        .chat-message .variable { color: #9cdcfe; }
+
+        .review-panel {
+            width: 400px;
+            min-width: 300px;
+            max-width: 1000px;
+            background-color: #252526;
+            border-left: 1px solid #454545;
+            display: none;
+            flex-shrink: 0;
+            height: 100%;
+            position: relative;
+            flex-direction: column;
+        }
+
+        .review-panel.active {
+            display: flex;
+        }
+
+        .review-panel-resizer {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background-color: transparent;
+            cursor: ew-resize;
+            transition: background-color 0.2s;
+        }
+
+        .review-panel-resizer:hover,
+        .review-panel-resizer.resizing {
+            background-color: #007acc;
+        }
+
+        .review-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 16px;
+            background-color: #252526;
+            border-bottom: 1px solid #454545;
+        }
+
+        .review-panel-header h2 {
+            margin: 0;
+            font-size: 18px;
+            color: #ffffff;
+            font-weight: 600;
+        }
+
+        .review-panel-collapse {
+            background: none;
+            border: none;
+            color: #cccccc;
+            cursor: pointer;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .review-panel-collapse:hover {
+            color: #ffffff;
+        }
+
+        .review-dashboard {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .review-card {
+            background-color: #2d2d2d;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s ease;
+        }
+
+        .review-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .card-header h3 {
+            margin: 0;
+            color: #ffffff;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .score {
+            background-color: #4caf50;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 16px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .score::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.8);
+        }
+
+        .score.warning {
+            background-color: #ff9800;
+        }
+
+        .score.error {
+            background-color: #f44336;
+        }
+
+        .metric {
+            margin-bottom: 20px;
+            background-color: #333333;
+            padding: 16px;
+            border-radius: 8px;
+        }
+
+        .metric-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .metric-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .metric-value {
+            color: #007acc;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background-color: #454545;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .progress {
+            height: 100%;
+            background: linear-gradient(90deg, #007acc, #00b3e6);
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+
+        .metric-explanation {
+            font-size: 13px;
+            color: #999999;
+            margin-top: 8px;
+            line-height: 1.4;
+        }
+
+        .issue-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .issue-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background-color: #333333;
+            border-radius: 8px;
+            border-left: 4px solid transparent;
+            transition: background-color 0.2s ease;
+        }
+
+        .issue-item:hover {
+            background-color: #3c3c3c;
+        }
+
+        .issue-item.high {
+            border-left-color: #f44336;
+        }
+
+        .issue-item.medium {
+            border-left-color: #ff9800;
+        }
+
+        .issue-item.low {
+            border-left-color: #4caf50;
+        }
+
+        .issue-severity {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .issue-content {
+            flex: 1;
+        }
+
+        .issue-title {
+            color: #ffffff;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .issue-description {
+            color: #999999;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .insight-item, .suggestion-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            padding: 16px;
+            background-color: #333333;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            transition: transform 0.2s ease;
+        }
+
+        .insight-item:hover, .suggestion-item:hover {
+            transform: translateX(4px);
+        }
+
+        .insight-icon, .suggestion-icon {
+            font-size: 24px;
+            background-color: #2d2d2d;
+            padding: 12px;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .insight-text, .suggestion-text {
+            flex: 1;
+        }
+
+        .insight-text h4, .suggestion-text h4 {
+            margin: 0 0 8px 0;
+            color: #ffffff;
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .insight-text p, .suggestion-text p {
+            margin: 0;
+            color: #999999;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #cccccc;
+        }
+
+        .error-message {
+            color: #f44336;
+            padding: 16px;
+            text-align: center;
+            background-color: #2d2d2d;
+            border-radius: 8px;
+        }
+
+        /* Add new styles for highlighted lines */
+        .highlighted-code-line {
+            background-color: rgba(0, 122, 204, 0.2) !important;
+            border-left: 3px solid #007acc !important;
+        }
+
+        .issue-item, .metric, .insight-item, .suggestion-item {
+            cursor: pointer;
+        }
+
+        .issue-item:hover, .metric:hover, .insight-item:hover, .suggestion-item:hover {
+            outline: 1px solid #007acc;
+        }
+
+        .issue-location, .insight-location, .suggestion-location {
+            font-size: 12px;
+            color: #007acc;
+            margin-top: 4px;
+        }
+
+        .issue-item:hover .issue-location,
+        .insight-item:hover .insight-location,
+        .suggestion-item:hover .suggestion-location {
+            text-decoration: underline;
+        }
+
+        /* Add debug panel styles */
+        .debug-panel {
+            width: 400px;
+            min-width: 300px;
+            max-width: 1000px;
+            background-color: #252526;
+            border-left: 1px solid #454545;
+            display: none;
+            flex-shrink: 0;
+            height: 100%;
+            position: relative;
+            flex-direction: column;
+        }
+
+        .debug-panel.active {
+            display: flex;
+        }
+
+        .debug-panel-resizer {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background-color: transparent;
+            cursor: ew-resize;
+            transition: background-color 0.2s;
+        }
+
+        .debug-panel-resizer:hover,
+        .debug-panel-resizer.resizing {
+            background-color: #007acc;
+        }
+
+        .debug-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 16px;
+            background-color: #252526;
+            border-bottom: 1px solid #454545;
+        }
+
+        .debug-panel-header h2 {
+            margin: 0;
+            font-size: 18px;
+            color: #ffffff;
+            font-weight: 600;
+        }
+
+        .debug-panel-collapse {
+            background: none;
+            border: none;
+            color: #cccccc;
+            cursor: pointer;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .debug-panel-collapse:hover {
+            color: #ffffff;
+        }
+
+        .debug-dashboard {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .debug-card {
+            background-color: #2d2d2d;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s ease;
+        }
+
+        .debug-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .bug-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px;
+            background-color: #333333;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .bug-item:hover {
+            background-color: #3c3c3c;
+        }
+
+        .bug-severity {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .bug-severity.critical {
+            background-color: #f44336;
+            color: white;
+        }
+
+        .bug-severity.warning {
+            background-color: #ff9800;
+            color: white;
+        }
+
+        .bug-severity.info {
+            background-color: #2196f3;
+            color: white;
+        }
+
+        .bug-content {
+            flex: 1;
+        }
+
+        .bug-title {
+            color: #ffffff;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .bug-description {
+            color: #999999;
+            font-size: 13px;
+            line-height: 1.4;
+            margin-bottom: 8px;
+        }
+
+        .bug-location {
+            font-size: 12px;
+            color: #007acc;
+        }
+
+        .bug-suggestion {
+            background-color: #1e1e1e;
+            border-radius: 4px;
+            padding: 12px;
+            margin-top: 8px;
+            font-family: 'Consolas', monospace;
+            font-size: 13px;
+            color: #d4d4d4;
+            overflow-x: auto;
+        }
+
+        .bug-suggestion pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .bug-suggestion code {
+            color: #d4d4d4;
+            font-family: 'Consolas', monospace;
+        }
+
+        /* Add new styles for the enhanced debug panel */
+        .bug-scenario, .bug-execution-path {
+            font-size: 13px;
+            color: #ff9800;
+            margin: 4px 0;
+            padding: 4px 8px;
+            background-color: rgba(255, 152, 0, 0.1);
+            border-radius: 4px;
+        }
+
+        .bug-potential-issues {
+            margin: 8px 0;
+            padding: 8px;
+            background-color: rgba(244, 67, 54, 0.1);
+            border-radius: 4px;
+        }
+
+        .bug-potential-issues-title {
+            color: #f44336;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .bug-potential-issues ul {
+            margin: 0;
+            padding-left: 20px;
+            color: #ff5252;
+        }
+
+        .bug-potential-issues li {
+            margin: 2px 0;
+        }
+
+        .bug-suggestion-title {
+            color: #4caf50;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .bug-suggestion {
+            margin-top: 12px;
+            padding: 12px;
+            background-color: #1e1e1e;
+            border-radius: 4px;
+            border-left: 3px solid #4caf50;
+        }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <div class="title">Monaco Editor</div>
+    </div>
+    <div class="main-content">
+        <div class="activity-bar">
+            <div class="activity-bar-icon active" onclick="togglePanel('explorer')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z"/>
+                </svg>
+            </div>
+            <div class="activity-bar-icon" onclick="togglePanel('terminal')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 17l5-5-5-5M12 19h8"/>
+                </svg>
+            </div>
+            <div class="activity-bar-icon" onclick="togglePanel('chat')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10z"/>
+                </svg>
+            </div>
+            <div class="activity-bar-icon" onclick="togglePanel('review')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 20V10M12 10L8 14M12 10L16 14M2 12C2 6.48 6.48 2 12 2C17.52 2 22 6.48 22 12C22 17.52 17.52 22 12 22C6.48 22 2 17.52 2 12Z"/>
+                </svg>
+            </div>
+            <div class="activity-bar-icon" onclick="togglePanel('debug')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"/>
+                    <path d="M12 16C14.2091 16 16 14.2091 16 12C16 9.79086 14.2091 8 12 8C9.79086 8 8 9.79086 8 12C8 14.2091 9.79086 16 12 16Z"/>
+                    <path d="M12 8V4"/>
+                    <path d="M12 20V16"/>
+                    <path d="M4 12H8"/>
+                    <path d="M16 12H20"/>
+                </svg>
+            </div>
+        </div>
+        <div class="panels-container">
+            <div class="sidebar" id="explorer-panel">
+                <div class="sidebar-header">EXPLORER</div>
+                <div class="file-explorer" id="file-explorer"></div>
+            </div>
+            <div class="editor-container">
+                <div class="editor-tabs" id="editor-tabs"></div>
+                <div id="editor"></div>
+                <div class="status-bar">
+                    <span id="status-text">Ready</span>
+                </div>
+            </div>
+            <div class="chat-panel" id="chat-panel">
+                <div class="chat-panel-resizer" id="chat-panel-resizer"></div>
+                <div class="sidebar-header">CHAT</div>
+                <div class="chat-messages" id="chat-messages"></div>
+                <div class="chat-input">
+                    <input type="text" id="chat-input" placeholder="Type a message...">
+                </div>
+            </div>
+            <div class="review-panel" id="review-panel">
+                <div class="review-panel-resizer" id="review-panel-resizer"></div>
+                <div class="review-panel-header">
+                    <h2>CODE REVIEW</h2>
+                    <button class="review-panel-collapse" onclick="toggleReviewPanel()">×</button>
+                </div>
+                <div class="review-dashboard">
+                    <div class="review-card code-quality">
+                        <div class="card-header">
+                            <h3>Code Quality</h3>
+                            <div class="score">92%</div>
+                        </div>
+                        <div class="card-content">
+                            <div class="metric">
+                                <div class="metric-header">
+                                    <div class="metric-label">
+                                        <span class="metric-icon">🔄</span>
+                                        Complexity
+                                    </div>
+                                    <div class="metric-value">75%</div>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress" style="width: 75%"></div>
+                                </div>
+                                <div class="metric-explanation">Code complexity is well-managed with clear function boundaries</div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-header">
+                                    <div class="metric-label">
+                                        <span class="metric-icon">🔧</span>
+                                        Maintainability
+                                    </div>
+                                    <div class="metric-value">85%</div>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress" style="width: 85%"></div>
+                                </div>
+                                <div class="metric-explanation">High maintainability score with good code organization</div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-header">
+                                    <div class="metric-label">
+                                        <span class="metric-icon">🎯</span>
+                                        Test Coverage
+                                    </div>
+                                    <div class="metric-value">60%</div>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress" style="width: 60%"></div>
+                                </div>
+                                <div class="metric-explanation">Moderate test coverage, could be improved</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="review-card issues">
+                        <div class="card-header">
+                            <h3>Issues</h3>
+                            <div class="score warning">3</div>
+                        </div>
+                        <div class="card-content">
+                            <div class="issue-list">
+                                <div class="issue-item high">
+                                    <div class="issue-content">
+                                        <div class="issue-title">Memory Leak Risk</div>
+                                        <div class="issue-description">Potential memory leak detected in main event loop</div>
+                                    </div>
+                                </div>
+                                <div class="issue-item medium">
+                                    <div class="issue-content">
+                                        <div class="issue-title">Unused Variable</div>
+                                        <div class="issue-description">Variable declared but never used in function scope</div>
+                                    </div>
+                                </div>
+                                <div class="issue-item low">
+                                    <div class="issue-content">
+                                        <div class="issue-title">Documentation Gap</div>
+                                        <div class="issue-description">Missing documentation for key functions</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="debug-panel" id="debug-panel">
+                <div class="debug-panel-resizer" id="debug-panel-resizer"></div>
+                <div class="debug-panel-header">
+                    <h2>DEBUG ANALYSIS</h2>
+                    <button class="debug-panel-collapse" onclick="toggleDebugPanel()">×</button>
+                </div>
+                <div class="debug-dashboard">
+                    <!-- Debug content will be dynamically populated -->
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="terminal-panel" id="terminal-panel">
+        <div class="terminal-header">
+            <span>Terminal</span>
+            <span class="close-button" onclick="togglePanel('terminal')">×</span>
+        </div>
+        <div class="terminal-content" id="terminal-content"></div>
+        <div class="terminal-input">
+            <span class="terminal-prompt">$</span>
+            <input type="text" id="terminal-input" placeholder="Enter command...">
+        </div>
+    </div>
+
+    <script>
+        require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs' }});
+        require(['vs/editor/editor.main'], function() {
+            window.editorLoaded = true;
+            window.dispatchEvent(new Event('editorLoaded'));
+        });
+
+        function togglePanel(panel) {
+            // Update activity bar icons
+            document.querySelectorAll('.activity-bar-icon').forEach(icon => {
+                icon.classList.remove('active');
+            });
+            event.currentTarget.classList.add('active');
+
+            // Show/hide panels
+            const explorerPanel = document.getElementById('explorer-panel');
+            const chatPanel = document.getElementById('chat-panel');
+            const terminalPanel = document.getElementById('terminal-panel');
+            const reviewPanel = document.getElementById('review-panel');
+            const debugPanel = document.getElementById('debug-panel');
+
+            // Reset all panels
+            explorerPanel.style.display = 'none';
+            chatPanel.style.display = 'none';
+            terminalPanel.style.display = 'none';
+            reviewPanel.style.display = 'none';
+            debugPanel.style.display = 'none';
+
+            // Show the selected panels
+            if (panel === 'explorer') {
+                explorerPanel.style.display = 'flex';
+            } else if (panel === 'chat') {
+                explorerPanel.style.display = 'flex';
+                chatPanel.style.display = 'flex';
+            } else if (panel === 'terminal') {
+                explorerPanel.style.display = 'flex';
+                terminalPanel.style.display = 'block';
+            } else if (panel === 'review') {
+                explorerPanel.style.display = 'flex';
+                reviewPanel.style.display = 'flex';
+                updateReviewDashboard();
+            } else if (panel === 'debug') {
+                explorerPanel.style.display = 'flex';
+                debugPanel.style.display = 'flex';
+                updateDebugDashboard();
+            }
+        }
+
+        function toggleReviewPanel() {
+            const reviewPanel = document.getElementById('review-panel');
+            reviewPanel.style.display = 'none';
+            // Remove active class from review button
+            document.querySelector('.activity-bar-icon[onclick="togglePanel(\'review\')"]').classList.remove('active');
+        }
+
+        function toggleDebugPanel() {
+            const debugPanel = document.getElementById('debug-panel');
+            debugPanel.style.display = 'none';
+            // Remove active class from debug button
+            document.querySelector('.activity-bar-icon[onclick="togglePanel(\'debug\')"]').classList.remove('active');
+        }
+
+        async function updateReviewDashboard() {
+            const dashboard = document.querySelector('.review-dashboard');
+            dashboard.innerHTML = '<div class="loading">Analyzing code...</div>';
+
+            try {
+                // Get current file content
+                let currentFileContent = '';
+                if (window.editor && window.editor.getModel()) {
+                    currentFileContent = window.editor.getModel().getValue();
+                }
+
+                // Update the prompts to include line information
+                const prompts = {
+                    quality: `Analyze the code quality and provide metrics. Return ONLY a JSON object in this exact format:
+                    {
+                        "overallScore": number between 0-100,
+                        "metrics": {
+                            "Complexity": { "score": number between 0-100, "explanation": "string", "affectedLines": [{"start": number, "end": number}] },
+                            "Maintainability": { "score": number between 0-100, "explanation": "string", "affectedLines": [{"start": number, "end": number}] },
+                            "Test Coverage": { "score": number between 0-100, "explanation": "string", "affectedLines": [{"start": number, "end": number}] }
+                        }
+                    }`,
+
+                    issues: `Find potential issues in the code. Return ONLY a JSON array in this exact format:
+                    [
+                        { 
+                            "severity": "high/medium/low", 
+                            "description": "string",
+                            "title": "string",
+                            "lineStart": number,
+                            "lineEnd": number
+                        }
+                    ]`,
+
+                    insights: `Provide overall insights about the codebase. Return ONLY a JSON array in this exact format:
+                    [
+                        { 
+                            "icon": "emoji", 
+                            "title": "string", 
+                            "description": "string",
+                            "affectedLines": [{"start": number, "end": number}]
+                        }
+                    ]`,
+
+                    optimization: `Suggest code optimizations. Return ONLY a JSON array in this exact format:
+                    [
+                        { 
+                            "icon": "emoji", 
+                            "category": "string", 
+                            "description": "string",
+                            "lineStart": number,
+                            "lineEnd": number
+                        }
+                    ]`
+                };
+
+                // Fetch analysis for each aspect
+                const responses = await Promise.all(
+                    Object.entries(prompts).map(async ([key, prompt]) => {
+                        try {
+                            const response = await fetch('http://localhost:3000/api/chat', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    message: prompt,
+                                    currentFileContent
+                                })
+                            });
+
+                            if (!response.ok) {
+                                throw new Error(`HTTP error! status: ${response.status}`);
+                            }
+
+                            const data = await response.json();
+                            
+                            // Try to extract JSON from the response
+                            let parsedResponse;
+                            try {
+                                // First try direct parsing
+                                parsedResponse = JSON.parse(data.response);
+                            } catch (e) {
+                                // If direct parsing fails, try to extract JSON from markdown code blocks
+                                const jsonMatch = data.response.match(/```(?:json)?\n([\s\S]*?)```/);
+                                if (jsonMatch) {
+                                    try {
+                                        parsedResponse = JSON.parse(jsonMatch[1].trim());
+                                    } catch (e2) {
+                                        // If still fails, try to extract any JSON-like structure
+                                        const jsonStructure = data.response.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+                                        if (jsonStructure) {
+                                            try {
+                                                parsedResponse = JSON.parse(jsonStructure[0]);
+                                            } catch (e3) {
+                                                throw new Error('Could not parse JSON from response');
+                                            }
+                                        } else {
+                                            throw new Error('No valid JSON found in response');
+                                        }
+                                    }
+                                } else {
+                                    // If no code block found, try to extract any JSON-like structure
+                                    const jsonStructure = data.response.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+                                    if (jsonStructure) {
+                                        try {
+                                            parsedResponse = JSON.parse(jsonStructure[0]);
+                                        } catch (e2) {
+                                            throw new Error('Could not parse JSON from response');
+                                        }
+                                    } else {
+                                        throw new Error('No valid JSON found in response');
+                                    }
+                                }
+                            }
+
+                            return [key, parsedResponse];
+                        } catch (error) {
+                            console.error(`Error processing ${key}:`, error);
+                            // Return default values for the specific type
+                            return [key, getDefaultValue(key)];
+                        }
+                    })
+                );
+
+                // Update dashboard with responses
+                const analysis = Object.fromEntries(responses);
+                
+                // Update dashboard
+                dashboard.innerHTML = '';
+                dashboard.appendChild(createQualityCard(analysis.quality));
+                dashboard.appendChild(createIssuesCard(analysis.issues));
+                dashboard.appendChild(createInsightsCard(analysis.insights));
+                dashboard.appendChild(createOptimizationCard(analysis.optimization));
+
+            } catch (error) {
+                console.error('Review dashboard error:', error);
+                dashboard.innerHTML = `
+                    <div class="error-message">
+                        Error analyzing code: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        // Helper function to provide default values when parsing fails
+        function getDefaultValue(type) {
+            switch (type) {
+                case 'quality':
+                    return {
+                        overallScore: 0,
+                        metrics: {
+                            "Complexity": { score: 0, explanation: "Unable to analyze" },
+                            "Maintainability": { score: 0, explanation: "Unable to analyze" },
+                            "Test Coverage": { score: 0, explanation: "Unable to analyze" }
+                        }
+                    };
+                case 'issues':
+                    return [{ severity: "medium", description: "Unable to analyze code issues" }];
+                case 'insights':
+                    return [{ icon: "⚠️", title: "Analysis Failed", description: "Unable to generate insights" }];
+                case 'optimization':
+                    return [{ icon: "⚠️", category: "Analysis Failed", description: "Unable to generate optimization suggestions" }];
+                default:
+                    return null;
+            }
+        }
+
+        // Add highlighting functionality
+        function highlightCodeLines(startLine, endLine) {
+            if (!window.editor) return;
+
+            // Remove any existing decorations
+            if (window.currentDecorations) {
+                window.editor.deltaDecorations(window.currentDecorations, []);
+            }
+
+            // Add new decoration
+            window.currentDecorations = window.editor.deltaDecorations([], [
+                {
+                    range: new monaco.Range(startLine, 1, endLine, 1),
+                    options: {
+                        isWholeLine: true,
+                        className: 'highlighted-code-line',
+                        inlineClassName: 'highlighted-code-line'
+                    }
+                }
+            ]);
+
+            // Scroll to the highlighted lines
+            window.editor.revealLineInCenter(startLine);
+        }
+
+        // Update the card creation functions to include click handlers
+        function createQualityCard(quality) {
+            const card = document.createElement('div');
+            card.className = 'review-card code-quality';
+            card.innerHTML = `
+                <div class="card-header">
+                    <h3>Code Quality</h3>
+                    <div class="score">${quality.overallScore}%</div>
+                </div>
+                <div class="card-content">
+                    ${Object.entries(quality.metrics).map(([metric, value]) => `
+                        <div class="metric" data-lines='${JSON.stringify(value.affectedLines)}'>
+                            <div class="metric-header">
+                                <div class="metric-label">
+                                    <span class="metric-icon">${getMetricIcon(metric)}</span>
+                                    ${metric}
+                                </div>
+                                <div class="metric-value">${value.score}%</div>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress" style="width: ${value.score}%"></div>
+                            </div>
+                            <div class="metric-explanation">${value.explanation}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            // Add click handlers for metrics
+            card.querySelectorAll('.metric').forEach(metric => {
+                metric.addEventListener('click', () => {
+                    const lines = JSON.parse(metric.dataset.lines);
+                    if (lines && lines.length > 0) {
+                        highlightCodeLines(lines[0].start, lines[0].end);
+                    }
+                });
+            });
+
+            return card;
+        }
+
+        function getMetricIcon(metric) {
+            const icons = {
+                'Complexity': '🔄',
+                'Maintainability': '🔧',
+                'Test Coverage': '🎯'
+            };
+            return icons[metric] || '📊';
+        }
+
+        function createIssuesCard(issues) {
+            const card = document.createElement('div');
+            card.className = 'review-card issues';
+            card.innerHTML = `
+                <div class="card-header">
+                    <h3>Issues</h3>
+                    <div class="score ${issues.length > 5 ? 'error' : issues.length > 2 ? 'warning' : ''}">${issues.length}</div>
+                </div>
+                <div class="card-content">
+                    <div class="issue-list">
+                        ${issues.map(issue => `
+                            <div class="issue-item ${issue.severity}" data-start="${issue.lineStart}" data-end="${issue.lineEnd}">
+                                <div class="issue-content">
+                                    <div class="issue-title">${getIssueTitle(issue)}</div>
+                                    <div class="issue-description">${issue.description}</div>
+                                    <div class="issue-location">Lines ${issue.lineStart}-${issue.lineEnd}</div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+
+            // Add click handlers for issues
+            card.querySelectorAll('.issue-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const start = parseInt(item.dataset.start);
+                    const end = parseInt(item.dataset.end);
+                    highlightCodeLines(start, end);
+                });
+            });
+
+            return card;
+        }
+
+        function getIssueTitle(issue) {
+            const titles = {
+                'high': 'Critical Issue',
+                'medium': 'Warning',
+                'low': 'Suggestion'
+            };
+            return titles[issue.severity] || 'Issue';
+        }
+
+        function createInsightsCard(insights) {
+            const card = document.createElement('div');
+            card.className = 'review-card insights';
+            card.innerHTML = `
+                <div class="card-header">
+                    <h3>Overall Insights</h3>
+                </div>
+                <div class="card-content">
+                    ${insights.map(insight => `
+                        <div class="insight-item" data-lines='${JSON.stringify(insight.affectedLines)}'>
+                            <div class="insight-icon">${insight.icon}</div>
+                            <div class="insight-text">
+                                <h4>${insight.title}</h4>
+                                <p>${insight.description}</p>
+                                ${insight.affectedLines ? `<div class="insight-location">Lines ${insight.affectedLines[0].start}-${insight.affectedLines[0].end}</div>` : ''}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            // Add click handlers for insights
+            card.querySelectorAll('.insight-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const lines = JSON.parse(item.dataset.lines);
+                    if (lines && lines.length > 0) {
+                        highlightCodeLines(lines[0].start, lines[0].end);
+                    }
+                });
+            });
+
+            return card;
+        }
+
+        function createOptimizationCard(optimizations) {
+            const card = document.createElement('div');
+            card.className = 'review-card optimization';
+            card.innerHTML = `
+                <div class="card-header">
+                    <h3>Optimization Suggestions</h3>
+                </div>
+                <div class="card-content">
+                    ${optimizations.map(opt => `
+                        <div class="suggestion-item" data-start="${opt.lineStart}" data-end="${opt.lineEnd}">
+                            <div class="suggestion-icon">${opt.icon}</div>
+                            <div class="suggestion-text">
+                                <h4>${opt.category}</h4>
+                                <p>${opt.description}</p>
+                                <div class="suggestion-location">Lines ${opt.lineStart}-${opt.lineEnd}</div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            // Add click handlers for suggestions
+            card.querySelectorAll('.suggestion-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const start = parseInt(item.dataset.start);
+                    const end = parseInt(item.dataset.end);
+                    highlightCodeLines(start, end);
+                });
+            });
+
+            return card;
+        }
+
+        // Initialize chat functionality
+        const chatInput = document.getElementById('chat-input');
+        const chatMessages = document.getElementById('chat-messages');
+
+        chatInput.addEventListener('keypress', async (e) => {
+            if (e.key === 'Enter') {
+                const message = chatInput.value.trim();
+                if (message) {
+                    // Disable input while processing
+                    chatInput.disabled = true;
+                    chatInput.value = '';
+
+                    // Add user message
+                    const userMessage = document.createElement('div');
+                    userMessage.className = 'chat-message user';
+                    userMessage.textContent = message;
+                    chatMessages.appendChild(userMessage);
+
+                    // Add loading message
+                    const loadingMessage = document.createElement('div');
+                    loadingMessage.className = 'chat-message assistant loading';
+                    loadingMessage.textContent = 'Thinking';
+                    chatMessages.appendChild(loadingMessage);
+
+                    try {
+                        // Get current file content if available
+                        let currentFileContent = '';
+                        
+                        // Get the current file content directly from the editor
+                        if (window.editor && window.editor.getModel()) {
+                            currentFileContent = window.editor.getModel().getValue();
+                            console.log('Got file content:', currentFileContent.substring(0, 100) + '...');
+                        }
+
+                        const response = await fetch('http://localhost:3000/api/chat', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ 
+                                message,
+                                currentFileContent
+                            })
+                        });
+
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            throw new Error(errorData.error || 'Failed to get response from server');
+                        }
+
+                        const data = await response.json();
+                        
+                        // Remove loading message
+                        loadingMessage.remove();
+                        
+                        // Add AI response with code formatting
+                        const aiMessage = document.createElement('div');
+                        aiMessage.className = 'chat-message assistant';
+                        
+                        // Format the response text to handle code blocks
+                        const formattedText = data.response.replace(/```(\w+)?\n([\s\S]*?)```/g, (match, lang, code) => {
+                            return `<pre><code class="language-${lang || 'plaintext'}">${code.trim()}</code></pre>`;
+                        });
+                        
+                        aiMessage.innerHTML = formattedText;
+                        chatMessages.appendChild(aiMessage);
+                    } catch (error) {
+                        console.error('Chat error:', error);
+                        // Remove loading message
+                        loadingMessage.remove();
+                        // Add error message
+                        const errorMessage = document.createElement('div');
+                        errorMessage.className = 'chat-message assistant';
+                        errorMessage.textContent = `Error: ${error.message || 'Failed to get response. Please try again.'}`;
+                        chatMessages.appendChild(errorMessage);
+                    } finally {
+                        // Re-enable input
+                        chatInput.disabled = false;
+                        chatInput.focus();
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                    }
+                }
+            }
+        });
+
+        // Initialize terminal functionality
+        const terminalInput = document.getElementById('terminal-input');
+        const terminalContent = document.getElementById('terminal-content');
+
+        terminalInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const command = terminalInput.value.trim();
+                if (command) {
+                    // Add command to terminal
+                    const commandLine = document.createElement('div');
+                    commandLine.innerHTML = `<span class="terminal-prompt">$</span> ${command}`;
+                    terminalContent.appendChild(commandLine);
+
+                    // Execute command (you can implement this later)
+                    const output = document.createElement('div');
+                    output.textContent = 'Command executed: ' + command;
+                    terminalContent.appendChild(output);
+
+                    terminalInput.value = '';
+                    terminalContent.scrollTop = terminalContent.scrollHeight;
+                }
+            }
+        });
+
+        const chatPanelResizer = document.getElementById('chat-panel-resizer');
+        let isResizing = false;
+        let startX;
+        let startWidth;
+
+        chatPanelResizer.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            startX = e.clientX;
+            startWidth = chatPanel.offsetWidth;
+            chatPanelResizer.classList.add('resizing');
+            document.body.style.cursor = 'ew-resize';
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isResizing) return;
+            
+            const width = startWidth - (e.clientX - startX);
+            const minWidth = 200;
+            const maxWidth = 800;
+            
+            if (width >= minWidth && width <= maxWidth) {
+                chatPanel.style.width = `${width}px`;
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            isResizing = false;
+            chatPanelResizer.classList.remove('resizing');
+            document.body.style.cursor = '';
+        });
+
+        // Add review panel resizer functionality
+        const reviewPanelResizer = document.getElementById('review-panel-resizer');
+        let isReviewResizing = false;
+        let reviewStartX;
+        let reviewStartWidth;
+
+        reviewPanelResizer.addEventListener('mousedown', (e) => {
+            isReviewResizing = true;
+            reviewStartX = e.clientX;
+            reviewStartWidth = reviewPanel.offsetWidth;
+            reviewPanelResizer.classList.add('resizing');
+            document.body.style.cursor = 'ew-resize';
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isReviewResizing) return;
+            
+            const width = reviewStartWidth - (e.clientX - reviewStartX);
+            const minWidth = 200;
+            const maxWidth = 800;
+            
+            if (width >= minWidth && width <= maxWidth) {
+                reviewPanel.style.width = `${width}px`;
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            isReviewResizing = false;
+            reviewPanelResizer.classList.remove('resizing');
+            document.body.style.cursor = '';
+        });
+
+        // Add debug panel resizer functionality
+        const debugPanelResizer = document.getElementById('debug-panel-resizer');
+        let isDebugResizing = false;
+        let debugStartX;
+        let debugStartWidth;
+
+        debugPanelResizer.addEventListener('mousedown', (e) => {
+            isDebugResizing = true;
+            debugStartX = e.clientX;
+            debugStartWidth = debugPanel.offsetWidth;
+            debugPanelResizer.classList.add('resizing');
+            document.body.style.cursor = 'ew-resize';
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isDebugResizing) return;
+            
+            const width = debugStartWidth - (e.clientX - debugStartX);
+            const minWidth = 300;
+            const maxWidth = 1000;
+            
+            if (width >= minWidth && width <= maxWidth) {
+                debugPanel.style.width = `${width}px`;
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            isDebugResizing = false;
+            debugPanelResizer.classList.remove('resizing');
+            document.body.style.cursor = '';
+        });
+
+        // Update the main content styles to better handle the layout
+        document.querySelector('.main-content').style.display = 'flex';
+        document.querySelector('.main-content').style.flexDirection = 'row';
+        document.querySelector('.main-content').style.overflow = 'hidden';
+
+        async function updateDebugDashboard() {
+            const dashboard = document.querySelector('.debug-dashboard');
+            dashboard.innerHTML = '<div class="loading">Analyzing code for execution issues and syntax errors...</div>';
+
+            try {
+                // Get current file content and detect language
+                let currentFileContent = '';
+                let currentLanguage = '';
+                if (window.editor && window.editor.getModel()) {
+                    currentFileContent = window.editor.getModel().getValue();
+                    currentLanguage = window.editor.getModel().getLanguageId();
+                }
+
+                // Debug analysis prompts
+                const prompts = {
+                    syntax: `Analyze this ${currentLanguage} code for syntax errors and compilation issues. Be thorough and nitpicky. Look for:
+                    1. Missing or incorrect delimiters (brackets, parentheses, braces)
+                    2. Incorrect indentation
+                    3. Missing or extra semicolons/colons
+                    4. Missing or incorrect keywords
+                    5. Incorrect variable declarations
+                    6. Incorrect function definitions
+                    7. Incorrect class definitions
+                    8. Incorrect method definitions
+                    9. Incorrect import/require statements
+                    10. Incorrect string literals
+                    11. Incorrect number literals
+                    12. Incorrect operator usage
+                    13. Incorrect control flow statements
+                    14. Incorrect exception handling
+                    15. Incorrect type declarations
+                    16. Incorrect array/object syntax
+                    17. Incorrect comment syntax
+                    18. Incorrect line breaks
+                    19. Incorrect whitespace
+                    20. Incomplete statements
+                    
+                    Return ONLY a JSON array in this exact format:
+                    [
+                        {
+                            "severity": "critical/warning/info",
+                            "title": "string",
+                            "description": "string",
+                            "lineStart": number,
+                            "lineEnd": number,
+                            "suggestion": "string (code block with suggested fix)",
+                            "type": "syntax/compilation",
+                            "category": "string (specific type of syntax error)",
+                            "impact": "string (potential impact of the error)",
+                            "prevention": "string (how to prevent this type of error)",
+                            "language": "string (programming language)",
+                            "commonMistake": "string (why this is a common mistake)",
+                            "bestPractice": "string (language-specific best practice)"
+                        }
+                    ]`,
+
+                    runtime: `Perform a comprehensive ${currentLanguage} runtime error analysis. Look for:
+                    1. Null/undefined reference errors
+                    2. Type errors
+                    3. Value errors
+                    4. Index out of bounds errors
+                    5. Key not found errors
+                    6. Attribute/property errors
+                    7. Import/module errors
+                    8. Division by zero errors
+                    9. File not found errors
+                    10. Permission errors
+                    11. Memory errors
+                    12. Stack overflow errors
+                    13. Recursion errors
+                    14. Iterator errors
+                    15. Generator errors
+                    16. Promise/async errors
+                    17. Event loop errors
+                    18. Resource cleanup errors
+                    19. Thread/process errors
+                    20. Network errors
+                    
+                    Return ONLY a JSON array in this exact format:
+                    [
+                        {
+                            "severity": "critical/warning/info",
+                            "title": "string",
+                            "description": "string",
+                            "lineStart": number,
+                            "lineEnd": number,
+                            "suggestion": "string (code block with suggested fix)",
+                            "type": "runtime",
+                            "errorType": "string (type of runtime error)",
+                            "scenario": "string (when this error might occur)",
+                            "impact": "string (potential impact of the error)",
+                            "prevention": "string (how to prevent this type of error)",
+                            "testing": "string (how to test for this issue)",
+                            "relatedIssues": ["string (list of related potential issues)"],
+                            "language": "string (programming language)",
+                            "commonMistake": "string (why this is a common mistake)"
+                        }
+                    ]`,
+
+                    execution: `Perform a detailed ${currentLanguage} execution path analysis. Look for:
+                    1. Infinite loops
+                    2. Dead code
+                    3. Unreachable code
+                    4. Infinite recursion
+                    5. Stack overflow risks
+                    6. Performance bottlenecks
+                    7. Memory leaks
+                    8. Resource leaks
+                    9. Thread safety issues
+                    10. Concurrency issues
+                    11. Event loop blocking
+                    12. Async/await issues
+                    13. Promise chain issues
+                    14. Generator issues
+                    15. Context manager issues
+                    16. Resource cleanup issues
+                    17. Exception propagation issues
+                    18. Logging issues
+                    19. State management issues
+                    20. Input validation issues
+                    
+                    Return ONLY a JSON array in this exact format:
+                    [
+                        {
+                            "severity": "critical/warning/info",
+                            "title": "string",
+                            "description": "string",
+                            "lineStart": number,
+                            "lineEnd": number,
+                            "suggestion": "string (code block with suggested fix)",
+                            "type": "execution",
+                            "executionPath": "string (description of the execution path)",
+                            "potentialIssues": ["string (list of potential issues)"],
+                            "impact": "string (potential impact of the issue)",
+                            "prevention": "string (how to prevent this type of issue)",
+                            "testing": "string (how to test for this issue)",
+                            "bestPractices": ["string (list of best practices to follow)"],
+                            "relatedIssues": ["string (list of related potential issues)"],
+                            "language": "string (programming language)",
+                            "performanceImpact": "string (performance impact description)"
+                        }
+                    ]`,
+
+                    security: `Perform a thorough ${currentLanguage} security analysis. Look for:
+                    1. SQL injection vulnerabilities
+                    2. Command injection risks
+                    3. Path traversal vulnerabilities
+                    4. File inclusion vulnerabilities
+                    5. Input validation issues
+                    6. Output encoding issues
+                    7. Authentication flaws
+                    8. Authorization issues
+                    9. Session management problems
+                    10. Password handling issues
+                    11. Cryptographic weaknesses
+                    12. File upload vulnerabilities
+                    13. Sensitive data exposure
+                    14. Security misconfigurations
+                    15. Dependency vulnerabilities
+                    16. Code injection risks
+                    17. Deserialization vulnerabilities
+                    18. XSS vulnerabilities
+                    19. CSRF vulnerabilities
+                    20. Race conditions
+                    
+                    Return ONLY a JSON array in this exact format:
+                    [
+                        {
+                            "severity": "critical/warning/info",
+                            "title": "string",
+                            "description": "string",
+                            "lineStart": number,
+                            "lineEnd": number,
+                            "suggestion": "string (code block with suggested fix)",
+                            "type": "security",
+                            "vulnerability": "string (type of security vulnerability)",
+                            "impact": "string (potential security impact)",
+                            "prevention": "string (how to prevent this vulnerability)",
+                            "testing": "string (how to test for this vulnerability)",
+                            "bestPractices": ["string (list of security best practices)"],
+                            "relatedIssues": ["string (list of related security issues)"],
+                            "language": "string (programming language)",
+                            "commonMistake": "string (why this is a common mistake)",
+                            "securityImpact": "string (detailed security impact)"
+                        }
+                    ]`,
+
+                    performance: `Perform a detailed ${currentLanguage} performance analysis. Look for:
+                    1. Algorithmic inefficiencies
+                    2. Memory leaks
+                    3. CPU bottlenecks
+                    4. I/O operations
+                    5. Network requests
+                    6. Database queries
+                    7. Cache usage
+                    8. Resource utilization
+                    9. Garbage collection issues
+                    10. Event loop blocking
+                    11. Synchronous operations
+                    12. Large data structures
+                    13. Unnecessary computations
+                    14. Redundant operations
+                    15. Poor data structures
+                    16. Inefficient loops
+                    17. Unnecessary object creation
+                    18. Poor string concatenation
+                    19. Inefficient array operations
+                    20. Poor memory management
+                    
+                    Return ONLY a JSON array in this exact format:
+                    [
+                        {
+                            "severity": "critical/warning/info",
+                            "title": "string",
+                            "description": "string",
+                            "lineStart": number,
+                            "lineEnd": number,
+                            "suggestion": "string (code block with suggested fix)",
+                            "type": "performance",
+                            "bottleneck": "string (type of performance bottleneck)",
+                            "impact": "string (performance impact)",
+                            "optimization": "string (how to optimize)",
+                            "testing": "string (how to measure performance)",
+                            "bestPractices": ["string (list of performance best practices)"],
+                            "relatedIssues": ["string (list of related performance issues)"],
+                            "language": "string (programming language)",
+                            "performanceImpact": "string (detailed performance impact)",
+                            "optimizationPotential": "string (potential optimization gains)"
+                        }
+                    ]`
+                };
+
+                // Fetch analysis for each aspect
+                const responses = await Promise.all(
+                    Object.entries(prompts).map(async ([key, prompt]) => {
+                        try {
+                            const response = await fetch('http://localhost:3000/api/chat', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    message: prompt,
+                                    currentFileContent
+                                })
+                            });
+
+                            if (!response.ok) {
+                                throw new Error(`HTTP error! status: ${response.status}`);
+                            }
+
+                            const data = await response.json();
+                            
+                            // Try to extract JSON from the response
+                            let parsedResponse;
+                            try {
+                                // First try direct parsing
+                                parsedResponse = JSON.parse(data.response);
+                            } catch (e) {
+                                // If direct parsing fails, try to extract JSON from markdown code blocks
+                                const jsonMatch = data.response.match(/```(?:json)?\n([\s\S]*?)```/);
+                                if (jsonMatch) {
+                                    try {
+                                        parsedResponse = JSON.parse(jsonMatch[1].trim());
+                                    } catch (e2) {
+                                        // If still fails, try to extract any JSON-like structure
+                                        const jsonStructure = data.response.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+                                        if (jsonStructure) {
+                                            try {
+                                                parsedResponse = JSON.parse(jsonStructure[0]);
+                                            } catch (e3) {
+                                                throw new Error('Could not parse JSON from response');
+                                            }
+                                        } else {
+                                            throw new Error('No valid JSON found in response');
+                                        }
+                                    }
+                                } else {
+                                    // If no code block found, try to extract any JSON-like structure
+                                    const jsonStructure = data.response.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+                                    if (jsonStructure) {
+                                        try {
+                                            parsedResponse = JSON.parse(jsonStructure[0]);
+                                        } catch (e2) {
+                                            throw new Error('Could not parse JSON from response');
+                                        }
+                                    } else {
+                                        throw new Error('No valid JSON found in response');
+                                    }
+                                }
+                            }
+
+                            return [key, parsedResponse];
+                        } catch (error) {
+                            console.error(`Error processing ${key}:`, error);
+                            // Return default values for the specific type
+                            return [key, getDefaultDebugValue(key)];
+                        }
+                    })
+                );
+
+                // Update dashboard with responses
+                const analysis = Object.fromEntries(responses);
+                
+                // Create and append debug cards
+                dashboard.innerHTML = '';
+                dashboard.appendChild(createBugCard('Syntax & Compilation Issues', analysis.syntax));
+                dashboard.appendChild(createBugCard('Runtime Error Analysis', analysis.runtime));
+                dashboard.appendChild(createBugCard('Execution Path Analysis', analysis.execution));
+                dashboard.appendChild(createBugCard('Security Analysis', analysis.security));
+                dashboard.appendChild(createBugCard('Performance Analysis', analysis.performance));
+
+            } catch (error) {
+                console.error('Debug dashboard error:', error);
+                dashboard.innerHTML = `
+                    <div class="error-message">
+                        Error analyzing code: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        // Helper function to provide default values when parsing fails
+        function getDefaultDebugValue(type) {
+            switch (type) {
+                case 'syntax':
+                    return [{
+                        severity: "warning",
+                        title: "Syntax Analysis Failed",
+                        description: "Unable to analyze syntax issues",
+                        lineStart: 1,
+                        lineEnd: 1,
+                        suggestion: "Please check your code for syntax errors",
+                        type: "syntax/compilation",
+                        category: "Analysis Error",
+                        impact: "Unable to detect syntax issues",
+                        prevention: "Ensure code is properly formatted",
+                        language: "All",
+                        commonMistake: "Analysis system error",
+                        bestPractice: "Check code manually"
+                    }];
+                case 'runtime':
+                    return [{
+                        severity: "warning",
+                        title: "Runtime Analysis Failed",
+                        description: "Unable to analyze runtime issues",
+                        lineStart: 1,
+                        lineEnd: 1,
+                        suggestion: "Please check your code for runtime errors",
+                        type: "runtime",
+                        errorType: "Analysis Error",
+                        scenario: "Analysis system error",
+                        impact: "Unable to detect runtime issues",
+                        prevention: "Ensure code is properly formatted",
+                        testing: "Manual testing required",
+                        relatedIssues: ["Analysis system error"],
+                        language: "All",
+                        commonMistake: "Analysis system error"
+                    }];
+                case 'execution':
+                    return [{
+                        severity: "warning",
+                        title: "Execution Analysis Failed",
+                        description: "Unable to analyze execution paths",
+                        lineStart: 1,
+                        lineEnd: 1,
+                        suggestion: "Please check your code for execution issues",
+                        type: "execution",
+                        executionPath: "Analysis system error",
+                        potentialIssues: ["Unable to analyze execution paths"],
+                        impact: "Unable to detect execution issues",
+                        prevention: "Ensure code is properly formatted",
+                        testing: "Manual testing required",
+                        bestPractices: ["Check code manually"],
+                        relatedIssues: ["Analysis system error"],
+                        language: "All",
+                        performanceImpact: "Unable to analyze"
+                    }];
+                case 'security':
+                    return [{
+                        severity: "warning",
+                        title: "Security Analysis Failed",
+                        description: "Unable to analyze security issues",
+                        lineStart: 1,
+                        lineEnd: 1,
+                        suggestion: "Please check your code for security issues",
+                        type: "security",
+                        vulnerability: "Analysis Error",
+                        impact: "Unable to detect security issues",
+                        prevention: "Ensure code is properly formatted",
+                        testing: "Manual security testing required",
+                        bestPractices: ["Check code manually"],
+                        relatedIssues: ["Analysis system error"],
+                        language: "All",
+                        commonMistake: "Analysis system error",
+                        securityImpact: "Unable to analyze"
+                    }];
+                case 'performance':
+                    return [{
+                        severity: "warning",
+                        title: "Performance Analysis Failed",
+                        description: "Unable to analyze performance issues",
+                        lineStart: 1,
+                        lineEnd: 1,
+                        suggestion: "Please check your code for performance issues",
+                        type: "performance",
+                        bottleneck: "Analysis Error",
+                        impact: "Unable to detect performance issues",
+                        optimization: "Manual optimization required",
+                        testing: "Manual performance testing required",
+                        bestPractices: ["Check code manually"],
+                        relatedIssues: ["Analysis system error"],
+                        language: "All",
+                        performanceImpact: "Unable to analyze",
+                        optimizationPotential: "Unable to analyze"
+                    }];
+                default:
+                    return [];
+            }
+        }
+
+        function createBugCard(title, bugs) {
+            const card = document.createElement('div');
+            card.className = 'debug-card';
+            card.innerHTML = `
+                <div class="card-header">
+                    <h3>${title}</h3>
+                    <div class="score ${bugs.length > 5 ? 'error' : bugs.length > 2 ? 'warning' : ''}">${bugs.length}</div>
+                </div>
+                <div class="card-content">
+                    ${bugs.map(bug => `
+                        <div class="bug-item" data-start="${bug.lineStart}" data-end="${bug.lineEnd}">
+                            <div class="bug-severity ${bug.severity}">${getSeverityIcon(bug.severity)}</div>
+                            <div class="bug-content">
+                                <div class="bug-title">${bug.title}</div>
+                                <div class="bug-description">${bug.description}</div>
+                                ${bug.scenario ? `<div class="bug-scenario">Scenario: ${bug.scenario}</div>` : ''}
+                                ${bug.executionPath ? `<div class="bug-execution-path">Execution Path: ${bug.executionPath}</div>` : ''}
+                                ${bug.potentialIssues ? `
+                                    <div class="bug-potential-issues">
+                                        <div class="bug-potential-issues-title">Potential Issues:</div>
+                                        <ul>
+                                            ${bug.potentialIssues.map(issue => `<li>${issue}</li>`).join('')}
+                                        </ul>
+                                    </div>
+                                ` : ''}
+                                <div class="bug-location">Lines ${bug.lineStart}-${bug.lineEnd}</div>
+                                <div class="bug-suggestion">
+                                    <div class="bug-suggestion-title">Suggested Fix:</div>
+                                    <pre><code>${bug.suggestion}</code></pre>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            // Add click handlers for bug items
+            card.querySelectorAll('.bug-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const start = parseInt(item.dataset.start);
+                    const end = parseInt(item.dataset.end);
+                    highlightCodeLines(start, end);
+                });
+            });
+
+            return card;
+        }
+
+        function getSeverityIcon(severity) {
+            const icons = {
+                'critical': '!',
+                'warning': '⚠',
+                'info': 'i'
+            };
+            return icons[severity] || '?';
+        }
+
+        // Add file system synchronization
+        let fileWatcher = null;
+        let currentDirectory = '';
+        let isFileModified = false;
+        let lastSavedContent = '';
+
+        async function initializeFileSystem() {
+            try {
+                // Get the current directory from the server
+                const response = await fetch('http://localhost:3000/api/files/current-directory');
+                if (!response.ok) {
+                    throw new Error('Failed to get current directory');
+                }
+                const data = await response.json();
+                currentDirectory = data.directory;
+                
+                // Initialize file watcher
+                initializeFileWatcher();
+                
+                // Initial file scan
+                scanDirectory(currentDirectory);
+
+                // Set up editor change listener
+                if (window.editor) {
+                    window.editor.onDidChangeModelContent(() => {
+                        handleEditorChange();
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to initialize file system:', error);
+            }
+        }
+
+        function handleEditorChange() {
+            if (!window.editor || !window.editor.getModel()) return;
+            
+            const model = window.editor.getModel();
+            const path = model.uri.path;
+            const currentContent = model.getValue();
+            
+            // Only save if content has actually changed
+            if (currentContent !== lastSavedContent) {
+                saveFileToLocal(path, currentContent);
+                lastSavedContent = currentContent;
+            }
+        }
+
+        async function saveFileToLocal(path, content) {
+            try {
+                // First, check if the file has been modified externally
+                const checkResponse = await fetch(`http://localhost:3000/api/files/check?path=${encodeURIComponent(path)}`);
+                if (!checkResponse.ok) {
+                    throw new Error('Failed to check file status');
+                }
+                const checkData = await checkResponse.json();
+                
+                // If file has been modified externally, show warning
+                if (checkData.modified) {
+                    if (!confirm('File has been modified externally. Do you want to save your changes?')) {
+                        return;
+                    }
+                }
+
+                const response = await fetch('http://localhost:3000/api/files/save', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        path: path,
+                        content: content
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to save file');
+                }
+
+                // Notify server about the change
+                notifyFileChange(path);
+
+                // Update status bar
+                updateStatusBar('File saved');
+            } catch (error) {
+                console.error('Error saving file:', error);
+                updateStatusBar('Error saving file');
+                throw error;
+            }
+        }
+
+        function notifyFileChange(path) {
+            if (fileWatcher && fileWatcher.readyState === WebSocket.OPEN) {
+                fileWatcher.send(JSON.stringify({
+                    type: 'modify',
+                    path: path,
+                    content: window.editor.getModel().getValue()
+                }));
+            }
+        }
+
+        function initializeFileWatcher() {
+            // Set up WebSocket connection for file system updates
+            fileWatcher = new WebSocket('ws://localhost:3000/ws');
+            
+            fileWatcher.onmessage = (event) => {
+                const update = JSON.parse(event.data);
+                handleFileSystemUpdate(update);
+            };
+
+            fileWatcher.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                updateStatusBar('Connection error');
+            };
+
+            fileWatcher.onclose = () => {
+                // Attempt to reconnect after a delay
+                setTimeout(initializeFileWatcher, 5000);
+            };
+        }
+
+        function handleFileSystemUpdate(update) {
+            switch (update.type) {
+                case 'create':
+                    addFileToExplorer(update.path, update.isDirectory);
+                    break;
+                case 'delete':
+                    removeFileFromExplorer(update.path);
+                    break;
+                case 'modify':
+                    updateFileInExplorer(update.path, update.content);
+                    break;
+                case 'rename':
+                    renameFileInExplorer(update.oldPath, update.newPath);
+                    break;
+            }
+        }
+
+        function updateFileInExplorer(path, content) {
+            // If the file is currently open in the editor, update it
+            if (window.editor && window.editor.getModel()) {
+                const currentPath = window.editor.getModel().uri.path;
+                if (currentPath === path) {
+                    // Update the model's content
+                    window.editor.getModel().setValue(content);
+                    // Update last saved content
+                    lastSavedContent = content;
+                }
+            }
+        }
+
+        async function openFile(path) {
+            try {
+                const response = await fetch(`http://localhost:3000/api/files/read?path=${encodeURIComponent(path)}`);
+                if (!response.ok) {
+                    throw new Error('Failed to read file');
+                }
+                const data = await response.json();
+                
+                // Create or update editor model
+                const uri = monaco.Uri.file(path);
+                let model = monaco.editor.getModel(uri);
+                
+                if (!model) {
+                    model = monaco.editor.createModel(data.content, undefined, uri);
+                } else {
+                    model.setValue(data.content);
+                }
+                
+                // Set the model as the editor's model
+                window.editor.setModel(model);
+                
+                // Update last saved content
+                lastSavedContent = data.content;
+                
+                // Update editor tabs
+                updateEditorTabs(path);
+                
+                // Update status bar
+                updateStatusBar('File opened');
+            } catch (error) {
+                console.error('Error opening file:', error);
+                updateStatusBar('Error opening file');
+            }
+        }
+
+        function updateEditorTabs(path) {
+            const tabsContainer = document.getElementById('editor-tabs');
+            const fileName = path.split('/').pop();
+            
+            // Check if tab already exists
+            let tab = document.querySelector(`.editor-tab[data-path="${path}"]`);
+            
+            if (!tab) {
+                // Create new tab
+                tab = document.createElement('div');
+                tab.className = 'editor-tab';
+                tab.dataset.path = path;
+                
+                const name = document.createElement('span');
+                name.textContent = fileName;
+                
+                const closeButton = document.createElement('span');
+                closeButton.className = 'close-button';
+                closeButton.innerHTML = '×';
+                closeButton.onclick = (e) => {
+                    e.stopPropagation();
+                    closeFile(path);
+                };
+                
+                tab.appendChild(name);
+                tab.appendChild(closeButton);
+                tabsContainer.appendChild(tab);
+            }
+            
+            // Update active state
+            document.querySelectorAll('.editor-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+        }
+
+        function closeFile(path) {
+            const model = monaco.editor.getModel(monaco.Uri.file(path));
+            if (model) {
+                model.dispose();
+            }
+            
+            // Remove tab
+            const tab = document.querySelector(`.editor-tab[data-path="${path}"]`);
+            if (tab) {
+                tab.remove();
+            }
+            
+            // Clear editor if no more files are open
+            if (document.querySelectorAll('.editor-tab').length === 0) {
+                window.editor.setModel(null);
+            }
+        }
+
+        // Initialize file system when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeFileSystem();
+        });
+    </script>
+    <script src="workspace.js"></script>
+</body>
+</html>
+
