@@ -5,6 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Monaco Editor</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs/loader.min.js"></script>
+    <!-- Add Prism CSS and JS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/copy-to-clipboard/prism-copy-to-clipboard.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-markdown.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
     <style>
         body {
             margin: 0;
@@ -24,6 +36,94 @@
             align-items: center;
             justify-content: space-between;
             border-bottom: 1px solid #454545;
+        }
+
+        .debug-toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #cccccc;
+            font-size: 14px;
+        }
+
+        .debug-toggle-container input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        .debug-output-panel {
+            height: 200px;
+            background-color: #1e1e1e;
+            border-top: 1px solid #454545;
+            display: none;
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+        }
+
+        .debug-output-panel.active {
+            display: block;
+        }
+
+        .debug-output-header {
+            padding: 8px 16px;
+            background-color: #252526;
+            border-bottom: 1px solid #454545;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .debug-output-content {
+            padding: 8px;
+            font-family: 'Consolas', monospace;
+            font-size: 14px;
+            color: #cccccc;
+            height: calc(100% - 40px);
+            overflow-y: auto;
+        }
+
+        .debug-message {
+            padding: 4px 8px;
+            margin: 4px 0;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .debug-message.error {
+            background-color: rgba(244, 67, 54, 0.1);
+            border-left: 3px solid #f44336;
+        }
+
+        .debug-message.warning {
+            background-color: rgba(255, 152, 0, 0.1);
+            border-left: 3px solid #ff9800;
+        }
+
+        .debug-message.info {
+            background-color: rgba(33, 150, 243, 0.1);
+            border-left: 3px solid #2196f3;
+        }
+
+        .debug-message .line-number {
+            color: #858585;
+            margin-right: 8px;
+        }
+
+        .debug-message .message-content {
+            display: inline-block;
+        }
+
+        .debug-message .suggestion {
+            margin-top: 4px;
+            padding: 4px 8px;
+            background-color: #2d2d2d;
+            border-radius: 4px;
+            font-family: 'Consolas', monospace;
+            font-size: 12px;
         }
 
         .activity-bar {
@@ -957,11 +1057,347 @@
             border-radius: 4px;
             border-left: 3px solid #4caf50;
         }
+
+        /* Update code block styles */
+        .code-block-container {
+            position: relative;
+            margin: 1em 0;
+            background: #1e1e1e;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .code-block-container pre {
+            margin: 0;
+            padding: 1em;
+            background: #1e1e1e;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+
+        .code-block-container code {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .copy-button {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            padding: 4px 8px;
+            background-color: #2d2d2d;
+            border: 1px solid #454545;
+            border-radius: 4px;
+            color: #cccccc;
+            font-size: 12px;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 1;
+        }
+
+        .code-block-container:hover .copy-button {
+            opacity: 1;
+        }
+
+        .copy-button:hover {
+            background-color: #3c3c3c;
+            color: #ffffff;
+        }
+
+        .copy-button.copied {
+            background-color: #4caf50;
+            color: white;
+            border-color: #4caf50;
+        }
+
+        /* Prism.js theme customization */
+        .token.comment,
+        .token.prolog,
+        .token.doctype,
+        .token.cdata {
+            color: #6a9955;
+        }
+
+        .token.punctuation {
+            color: #d4d4d4;
+        }
+
+        .token.property,
+        .token.tag,
+        .token.boolean,
+        .token.number,
+        .token.constant,
+        .token.symbol {
+            color: #b5cea8;
+        }
+
+        .token.selector,
+        .token.string,
+        .token.char,
+        .token.builtin {
+            color: #ce9178;
+        }
+
+        .token.operator,
+        .token.entity,
+        .token.url,
+        .language-css .token.string,
+        .style .token.string {
+            color: #d4d4d4;
+        }
+
+        .token.keyword {
+            color: #569cd6;
+        }
+
+        .token.function {
+            color: #dcdcaa;
+        }
+
+        .token.class-name {
+            color: #4ec9b0;
+        }
+
+        .token.variable {
+            color: #9cdcfe;
+        }
+
+        /* Add styles for run button */
+        .run-button {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+
+        .run-button:hover {
+            background-color: #45a049;
+        }
+
+        .run-button svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .run-button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        .run-button.loading {
+            background-color: #2196f3;
+            cursor: wait;
+        }
+
+        .run-button.loading svg {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Terminal message styles */
+        .terminal-message {
+            padding: 4px 8px;
+            margin: 4px 0;
+            font-family: 'Consolas', monospace;
+            font-size: 14px;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .terminal-message.error {
+            color: #ff5252;
+        }
+
+        .terminal-message.success {
+            color: #4caf50;
+        }
+
+        .terminal-message.info {
+            color: #2196f3;
+        }
+
+        .terminal-timestamp {
+            color: #858585;
+            margin-right: 8px;
+        }
+
+        /* Run button styles */
+        .run-button-container {
+            display: flex;
+            align-items: center;
+            margin-left: 10px;
+        }
+
+        #run-button {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+
+        #run-button:hover {
+            background-color: #45a049;
+        }
+
+        #run-button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        .run-icon {
+            font-size: 16px;
+        }
+
+        .run-text {
+            font-weight: 500;
+        }
+
+        /* Playground Panel Styles */
+        .playground-panel {
+            flex: 1;
+            background-color: #252526;
+            display: none;
+            flex-direction: column;
+            min-width: 0;
+            position: relative;
+        }
+
+        .playground-panel.active {
+            display: flex;
+        }
+
+        .playground-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 16px;
+            background-color: #252526;
+            border-bottom: 1px solid #454545;
+            height: 35px;
+        }
+
+        .playground-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        #playground-language {
+            padding: 6px 12px;
+            background-color: #3c3c3c;
+            border: 1px solid #454545;
+            color: #ffffff;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        #playground-language:focus {
+            outline: none;
+            border-color: #007acc;
+        }
+
+        #playground-language option {
+            background-color: #3c3c3c;
+            color: #ffffff;
+        }
+
+        #playground-editor {
+            flex: 1;
+            min-height: 0;
+        }
+
+        .playground-terminal {
+            height: 200px;
+            background-color: #1e1e1e;
+            border-top: 1px solid #454545;
+        }
+
+        .playground-terminal .terminal-header {
+            padding: 8px 16px;
+            background-color: #252526;
+            border-bottom: 1px solid #454545;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .playground-terminal .terminal-content {
+            padding: 8px;
+            font-family: 'Consolas', monospace;
+            font-size: 14px;
+            color: #cccccc;
+            height: calc(100% - 40px);
+            overflow-y: auto;
+        }
+
+        /* Add chat panel header styles */
+        .chat-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 16px;
+            background-color: #252526;
+            border-bottom: 1px solid #454545;
+        }
+
+        .chat-panel-header h2 {
+            margin: 0;
+            font-size: 18px;
+            color: #ffffff;
+            font-weight: 600;
+        }
+
+        .chat-panel-collapse {
+            background: none;
+            border: none;
+            color: #cccccc;
+            cursor: pointer;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .chat-panel-collapse:hover {
+            color: #ffffff;
+        }
     </style>
 </head>
 <body>
     <div class="top-bar">
         <div class="title">Monaco Editor</div>
+        <div class="debug-toggle-container">
+            <input type="checkbox" id="debug-toggle" onchange="toggleDebugAssistance()">
+            <label for="debug-toggle">Real-time Debugging</label>
+            <!-- Run button -->
+            <div class="run-button-container">
+                <button id="run-button" onclick="runCode()">
+                    <span class="run-icon">▶</span>
+                    <span class="run-text">Run</span>
+                </button>
+            </div>
+        </div>
     </div>
     <div class="main-content">
         <div class="activity-bar">
@@ -995,6 +1431,13 @@
                     <path d="M16 12H20"/>
                 </svg>
             </div>
+            <div class="activity-bar-icon" onclick="togglePanel('playground')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2L2 7L12 12L22 7L12 2Z"/>
+                    <path d="M2 17L12 22L22 17"/>
+                    <path d="M2 12L12 17L22 12"/>
+                </svg>
+            </div>
         </div>
         <div class="panels-container">
             <div class="sidebar" id="explorer-panel">
@@ -1010,7 +1453,10 @@
             </div>
             <div class="chat-panel" id="chat-panel">
                 <div class="chat-panel-resizer" id="chat-panel-resizer"></div>
-                <div class="sidebar-header">CHAT</div>
+                <div class="chat-panel-header">
+                    <h2>CHAT</h2>
+                    <button class="chat-panel-collapse" onclick="toggleChatPanel()">×</button>
+                </div>
                 <div class="chat-messages" id="chat-messages"></div>
                 <div class="chat-input">
                     <input type="text" id="chat-input" placeholder="Type a message...">
@@ -1111,18 +1557,55 @@
                     <!-- Debug content will be dynamically populated -->
                 </div>
             </div>
+            <div class="playground-panel" id="playground-panel">
+                <div class="playground-panel-resizer" id="playground-panel-resizer"></div>
+                <div class="playground-header">
+                    <div class="playground-controls">
+                        <select id="playground-language" onchange="updatePlaygroundLanguage()">
+                            <option value="python">Python</option>
+                            <option value="javascript">JavaScript</option>
+                            <option value="java">Java</option>
+                            <option value="cpp">C++</option>
+                            <option value="c">C</option>
+                            <option value="go">Go</option>
+                            <option value="rust">Rust</option>
+                            <option value="ruby">Ruby</option>
+                            <option value="php">PHP</option>
+                        </select>
+                        <button id="playground-run" onclick="runPlaygroundCode()">
+                            <span class="run-icon">▶</span>
+                            <span class="run-text">Run</span>
+                        </button>
+                    </div>
+                    <button class="playground-panel-collapse" onclick="togglePlaygroundPanel()">×</button>
+                </div>
+                <div id="playground-editor"></div>
+                <div class="playground-terminal">
+                    <div class="terminal-header">
+                        <span>Playground Output</span>
+                    </div>
+                    <div class="terminal-content" id="playground-output"></div>
+                </div>
+            </div>
         </div>
     </div>
     <div class="terminal-panel" id="terminal-panel">
         <div class="terminal-header">
             <span>Terminal</span>
-            <span class="close-button" onclick="togglePanel('terminal')">×</span>
+            <span class="close-button" onclick="closeTerminalPanel()">×</span>
         </div>
         <div class="terminal-content" id="terminal-content"></div>
         <div class="terminal-input">
             <span class="terminal-prompt">$</span>
             <input type="text" id="terminal-input" placeholder="Enter command...">
         </div>
+    </div>
+    <div class="debug-output-panel" id="debug-output-panel">
+        <div class="debug-output-header">
+            <span>Debug Output</span>
+            <span class="close-button" onclick="toggleDebugOutput()">×</span>
+        </div>
+        <div class="debug-output-content" id="debug-output-content"></div>
     </div>
 
     <script>
@@ -1145,32 +1628,70 @@
             const terminalPanel = document.getElementById('terminal-panel');
             const reviewPanel = document.getElementById('review-panel');
             const debugPanel = document.getElementById('debug-panel');
+            const playgroundPanel = document.getElementById('playground-panel');
+            const editorContainer = document.querySelector('.editor-container');
 
-            // Reset all panels
+            // Handle special cases for chat, debug, and review panels
+            if (panel === 'chat' || panel === 'debug' || panel === 'review') {
+                // Toggle the specific panel without affecting others
+                const targetPanel = document.getElementById(`${panel}-panel`);
+                const isOpening = targetPanel.style.display !== 'flex';
+                targetPanel.style.display = isOpening ? 'flex' : 'none';
+                
+                // Keep the playground panel visible if it's active
+                if (playgroundPanel.style.display === 'flex') {
+                    playgroundPanel.style.display = 'flex';
+                } else {
+                    // If playground is not active, show the editor container
+                    editorContainer.style.display = 'flex';
+                }
+                
+                // Keep the explorer panel visible
+                explorerPanel.style.display = 'flex';
+
+                // Trigger analysis when opening panels
+                if (isOpening) {
+                    if (panel === 'review') {
+                        updateReviewDashboard();
+                    } else if (panel === 'debug') {
+                        updateDebugDashboard();
+                    }
+                }
+                return;
+            }
+
+            // Reset all panels for other cases
             explorerPanel.style.display = 'none';
             chatPanel.style.display = 'none';
             terminalPanel.style.display = 'none';
             reviewPanel.style.display = 'none';
             debugPanel.style.display = 'none';
+            playgroundPanel.style.display = 'none';
+            editorContainer.style.display = 'none';
 
             // Show the selected panels
             if (panel === 'explorer') {
                 explorerPanel.style.display = 'flex';
-            } else if (panel === 'chat') {
-                explorerPanel.style.display = 'flex';
-                chatPanel.style.display = 'flex';
+                editorContainer.style.display = 'flex';
             } else if (panel === 'terminal') {
                 explorerPanel.style.display = 'flex';
+                editorContainer.style.display = 'flex';
                 terminalPanel.style.display = 'block';
-            } else if (panel === 'review') {
+            } else if (panel === 'playground') {
                 explorerPanel.style.display = 'flex';
-                reviewPanel.style.display = 'flex';
-                updateReviewDashboard();
-            } else if (panel === 'debug') {
-                explorerPanel.style.display = 'flex';
-                debugPanel.style.display = 'flex';
-                updateDebugDashboard();
+                playgroundPanel.style.display = 'flex';
+                if (!playgroundEditor) {
+                    initializePlayground();
+                }
             }
+        }
+
+        // Add this new function to handle terminal panel closing
+        function closeTerminalPanel() {
+            const terminalPanel = document.getElementById('terminal-panel');
+            terminalPanel.style.display = 'none';
+            // Remove active class from terminal button
+            document.querySelector('.activity-bar-icon[onclick="togglePanel(\'terminal\')"]').classList.remove('active');
         }
 
         function toggleReviewPanel() {
@@ -1554,10 +2075,7 @@
                     chatInput.value = '';
 
                     // Add user message
-                    const userMessage = document.createElement('div');
-                    userMessage.className = 'chat-message user';
-                    userMessage.textContent = message;
-                    chatMessages.appendChild(userMessage);
+                    addMessage(message, true);
 
                     // Add loading message
                     const loadingMessage = document.createElement('div');
@@ -1597,25 +2115,13 @@
                         loadingMessage.remove();
                         
                         // Add AI response with code formatting
-                        const aiMessage = document.createElement('div');
-                        aiMessage.className = 'chat-message assistant';
-                        
-                        // Format the response text to handle code blocks
-                        const formattedText = data.response.replace(/```(\w+)?\n([\s\S]*?)```/g, (match, lang, code) => {
-                            return `<pre><code class="language-${lang || 'plaintext'}">${code.trim()}</code></pre>`;
-                        });
-                        
-                        aiMessage.innerHTML = formattedText;
-                        chatMessages.appendChild(aiMessage);
+                        addMessage(data.response, false);
                     } catch (error) {
                         console.error('Chat error:', error);
                         // Remove loading message
                         loadingMessage.remove();
                         // Add error message
-                        const errorMessage = document.createElement('div');
-                        errorMessage.className = 'chat-message assistant';
-                        errorMessage.textContent = `Error: ${error.message || 'Failed to get response. Please try again.'}`;
-                        chatMessages.appendChild(errorMessage);
+                        addMessage(`Error: ${error.message || 'Failed to get response. Please try again.'}`, false);
                     } finally {
                         // Re-enable input
                         chatInput.disabled = false;
@@ -1651,6 +2157,7 @@
         });
 
         const chatPanelResizer = document.getElementById('chat-panel-resizer');
+        const chatPanel = document.getElementById('chat-panel');
         let isResizing = false;
         let startX;
         let startWidth;
@@ -1661,6 +2168,7 @@
             startWidth = chatPanel.offsetWidth;
             chatPanelResizer.classList.add('resizing');
             document.body.style.cursor = 'ew-resize';
+            e.preventDefault(); // Prevent text selection while resizing
         });
 
         document.addEventListener('mousemove', (e) => {
@@ -1676,6 +2184,34 @@
         });
 
         document.addEventListener('mouseup', () => {
+            isResizing = false;
+            chatPanelResizer.classList.remove('resizing');
+            document.body.style.cursor = '';
+        });
+
+        // Add touch support for mobile devices
+        chatPanelResizer.addEventListener('touchstart', (e) => {
+            isResizing = true;
+            startX = e.touches[0].clientX;
+            startWidth = chatPanel.offsetWidth;
+            chatPanelResizer.classList.add('resizing');
+            document.body.style.cursor = 'ew-resize';
+            e.preventDefault();
+        });
+
+        document.addEventListener('touchmove', (e) => {
+            if (!isResizing) return;
+            
+            const width = startWidth - (e.touches[0].clientX - startX);
+            const minWidth = 200;
+            const maxWidth = 800;
+            
+            if (width >= minWidth && width <= maxWidth) {
+                chatPanel.style.width = `${width}px`;
+            }
+        });
+
+        document.addEventListener('touchend', () => {
             isResizing = false;
             chatPanelResizer.classList.remove('resizing');
             document.body.style.cursor = '';
@@ -2469,6 +3005,438 @@
         document.addEventListener('DOMContentLoaded', () => {
             initializeFileSystem();
         });
+
+        // Add these variables at the top of your script
+        let debugTimeout = null;
+        let lastDebugContent = '';
+        let debugAssistanceEnabled = false;
+        let debugOutputPanel = null;
+
+        // Add these functions to your script
+        function toggleDebugAssistance() {
+            debugAssistanceEnabled = document.getElementById('debug-toggle').checked;
+            if (debugAssistanceEnabled) {
+                showDebugOutput();
+                addDebugMessage('info', 'Real-time debugging assistance enabled');
+            } else {
+                hideDebugOutput();
+                addDebugMessage('info', 'Real-time debugging assistance disabled');
+            }
+        }
+
+        function toggleDebugOutput() {
+            const panel = document.getElementById('debug-output-panel');
+            if (panel.classList.contains('active')) {
+                panel.classList.remove('active');
+            } else {
+                panel.classList.add('active');
+            }
+        }
+
+        function showDebugOutput() {
+            const panel = document.getElementById('debug-output-panel');
+            panel.classList.add('active');
+        }
+
+        function hideDebugOutput() {
+            const panel = document.getElementById('debug-output-panel');
+            panel.classList.remove('active');
+        }
+
+        function addDebugMessage(type, message, lineNumber = null, suggestion = null) {
+            const content = document.getElementById('debug-output-content');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `debug-message ${type}`;
+            
+            let messageHtml = '';
+            if (lineNumber) {
+                messageHtml += `<span class="line-number">Line ${lineNumber}:</span>`;
+            }
+            messageHtml += `<span class="message-content">${message}</span>`;
+            
+            if (suggestion) {
+                messageHtml += `<div class="suggestion">${suggestion}</div>`;
+            }
+            
+            messageDiv.innerHTML = messageHtml;
+            content.appendChild(messageDiv);
+            content.scrollTop = content.scrollHeight;
+        }
+
+        // Modify the editor initialization to include real-time debugging
+        function initializeEditor() {
+            // ... existing editor initialization code ...
+
+            // Add content change listener for real-time debugging
+            window.editor.onDidChangeModelContent(() => {
+                if (!debugAssistanceEnabled) return;
+
+                // Clear previous timeout
+                if (debugTimeout) {
+                    clearTimeout(debugTimeout);
+                }
+
+                // Get current content
+                const currentContent = window.editor.getModel().getValue();
+                
+                // Only analyze if content has changed significantly
+                if (currentContent !== lastDebugContent) {
+                    // Set new timeout for analysis
+                    debugTimeout = setTimeout(() => {
+                        analyzeCurrentCode();
+                    }, 1000); // Wait 1 second after typing stops
+                }
+                
+                lastDebugContent = currentContent;
+            });
+        }
+
+        async function analyzeCurrentCode() {
+            if (!window.editor || !window.editor.getModel()) return;
+
+            const currentContent = window.editor.getModel().getValue();
+            const currentLanguage = window.editor.getModel().getLanguageId();
+            
+            try {
+                // Quick syntax check
+                const response = await fetch('http://localhost:3000/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: `Quick syntax check for ${currentLanguage} code. Return ONLY a JSON array in this format:
+                        [
+                            {
+                                "severity": "critical/warning/info",
+                                "title": "string",
+                                "description": "string",
+                                "lineStart": number,
+                                "lineEnd": number,
+                                "suggestion": "string"
+                            }
+                        ]`,
+                        currentFileContent: currentContent
+                    })
+                });
+
+                if (!response.ok) throw new Error('Syntax check failed');
+                const data = await response.json();
+                const issues = JSON.parse(data.response);
+
+                // Clear previous messages
+                const content = document.getElementById('debug-output-content');
+                content.innerHTML = '';
+
+                // Add new messages
+                issues.forEach(issue => {
+                    addDebugMessage(
+                        issue.severity,
+                        `${issue.title}: ${issue.description}`,
+                        issue.lineStart,
+                        issue.suggestion
+                    );
+                });
+
+            } catch (error) {
+                console.error('Real-time analysis error:', error);
+                addDebugMessage('error', `Analysis error: ${error.message}`);
+            }
+        }
+
+        // Update the copy functionality
+        function copyCode(button, code) {
+            // Decode HTML entities in the code
+            const decodedCode = code
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>')
+                .replace(/&amp;/g, '&')
+                .replace(/&quot;/g, '"')
+                .replace(/&#039;/g, "'");
+
+            // Create a temporary textarea element
+            const textarea = document.createElement('textarea');
+            textarea.value = decodedCode;
+            document.body.appendChild(textarea);
+            textarea.select();
+
+            try {
+                // Try using the modern Clipboard API
+                navigator.clipboard.writeText(decodedCode).then(() => {
+                    // Visual feedback
+                    button.textContent = 'Copied!';
+                    button.classList.add('copied');
+                    
+                    // Reset after 2 seconds
+                    setTimeout(() => {
+                        button.textContent = 'Copy';
+                        button.classList.remove('copied');
+                    }, 2000);
+                }).catch(() => {
+                    // Fallback to execCommand if Clipboard API fails
+                    document.execCommand('copy');
+                    button.textContent = 'Copied!';
+                    button.classList.add('copied');
+                    setTimeout(() => {
+                        button.textContent = 'Copy';
+                        button.classList.remove('copied');
+                    }, 2000);
+                });
+            } catch (err) {
+                console.error('Failed to copy code:', err);
+                button.textContent = 'Failed';
+                setTimeout(() => {
+                    button.textContent = 'Copy';
+                }, 2000);
+            } finally {
+                // Clean up
+                document.body.removeChild(textarea);
+            }
+        }
+
+        // Update the formatChatMessage function to use Prism.js
+        function formatChatMessage(message) {
+            // Replace code blocks with formatted versions that include copy buttons
+            return message.replace(/```(\w+)?\n([\s\S]*?)```/g, (match, lang, code) => {
+                const trimmedCode = code.trim();
+                // Escape special characters in the code
+                const escapedCode = trimmedCode
+                    .replace(/\\/g, '\\\\')
+                    .replace(/`/g, '\\`')
+                    .replace(/\$/g, '\\$');
+                
+                // Map language names to Prism.js language names
+                const languageMap = {
+                    'js': 'javascript',
+                    'py': 'python',
+                    'sh': 'bash',
+                    'md': 'markdown'
+                };
+                
+                const prismLang = languageMap[lang] || lang || 'plaintext';
+                
+                return `
+                    <div class="code-block-container">
+                        <button class="copy-button" onclick="copyCode(this, \`${escapedCode}\`)">Copy</button>
+                        <pre class="line-numbers language-${prismLang}"><code class="language-${prismLang}">${trimmedCode}</code></pre>
+                    </div>
+                `;
+            });
+        }
+
+        // Update the addMessage function to highlight code after adding to DOM
+        function addMessage(content, isUser = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `chat-message ${isUser ? 'user' : 'assistant'}`;
+            messageDiv.innerHTML = formatChatMessage(content);
+            chatMessages.appendChild(messageDiv);
+            
+            // Highlight code blocks after adding to DOM
+            messageDiv.querySelectorAll('pre code').forEach((block) => {
+                Prism.highlightElement(block);
+            });
+            
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // Add code execution functionality
+        async function runCode() {
+            const editor = monaco.editor.getEditors()[0];
+            if (!editor) {
+                addTerminalMessage('No code to run. Please open a file first.', 'error');
+                return;
+            }
+
+            const code = editor.getValue();
+            if (!code.trim()) {
+                addTerminalMessage('No code to run', 'error');
+                return;
+            }
+
+            // Open terminal panel
+            const terminalPanel = document.getElementById('terminal-panel');
+            terminalPanel.classList.add('active');
+            
+            // Update activity bar icon
+            document.querySelectorAll('.activity-bar-icon').forEach(icon => {
+                icon.classList.remove('active');
+            });
+            document.querySelector('.activity-bar-icon[onclick="togglePanel(\'terminal\')"]').classList.add('active');
+
+            const language = editor.getModel().getLanguageId();
+            const runButton = document.getElementById('run-button');
+            const runText = runButton.querySelector('.run-text');
+            
+            try {
+                // Disable run button and show loading state
+                runButton.disabled = true;
+                runText.textContent = 'Running...';
+                addTerminalMessage(`Running ${language} code...`, 'info');
+
+                const response = await fetch('http://localhost:3000/run', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ language, code })
+                });
+
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to execute code');
+                }
+
+                // Show the actual output in the terminal
+                if (data.output) {
+                    // Split the output into lines and display each line
+                    const outputLines = data.output.split('\n');
+                    outputLines.forEach(line => {
+                        if (line.trim()) {
+                            addTerminalMessage(line, data.error ? 'error' : 'success');
+                        }
+                    });
+                } else {
+                    addTerminalMessage('No output received', 'info');
+                }
+
+            } catch (error) {
+                console.error('Code execution error:', error);
+                addTerminalMessage(error.message || 'Failed to execute code', 'error');
+            } finally {
+                // Re-enable run button and restore text
+                runButton.disabled = false;
+                runText.textContent = 'Run';
+            }
+        }
+
+        // Add terminal message function
+        function addTerminalMessage(message, type = 'info') {
+            const terminalContent = document.getElementById('terminal-content');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `terminal-message ${type}`;
+            
+            const timestamp = new Date().toLocaleTimeString();
+            messageDiv.innerHTML = `<span class="terminal-timestamp">[${timestamp}]</span> ${message}`;
+            
+            terminalContent.appendChild(messageDiv);
+            terminalContent.scrollTop = terminalContent.scrollHeight;
+        }
+
+        // Add playground functionality
+        let playgroundEditor = null;
+
+        function togglePlaygroundPanel() {
+            const playgroundPanel = document.getElementById('playground-panel');
+            playgroundPanel.style.display = 'none';
+            // Show the editor container
+            document.querySelector('.editor-container').style.display = 'flex';
+            // Remove active class from playground button
+            document.querySelector('.activity-bar-icon[onclick="togglePanel(\'playground\')"]').classList.remove('active');
+        }
+
+        function updatePlaygroundLanguage() {
+            if (!playgroundEditor) return;
+            const language = document.getElementById('playground-language').value;
+            monaco.editor.setModelLanguage(playgroundEditor.getModel(), language);
+        }
+
+        function initializePlayground() {
+            const container = document.getElementById('playground-editor');
+            playgroundEditor = monaco.editor.create(container, {
+                value: '// Write your code here\n',
+                language: 'python',
+                theme: 'vs-dark',
+                automaticLayout: true,
+                minimap: { enabled: false },
+                scrollBeyondLastLine: false,
+                fontSize: 14,
+                lineNumbers: 'on',
+                roundedSelection: false,
+                scrollbar: {
+                    vertical: 'visible',
+                    horizontal: 'visible'
+                }
+            });
+        }
+
+        async function runPlaygroundCode() {
+            if (!playgroundEditor) return;
+
+            const code = playgroundEditor.getValue();
+            const language = document.getElementById('playground-language').value;
+            const runButton = document.getElementById('playground-run');
+            const runText = runButton.querySelector('.run-text');
+            const output = document.getElementById('playground-output');
+
+            try {
+                // Disable run button and show loading state
+                runButton.disabled = true;
+                runText.textContent = 'Running...';
+                addPlaygroundMessage(`Running ${language} code...`, 'info');
+
+                const response = await fetch('http://localhost:3000/run', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ language, code })
+                });
+
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to execute code');
+                }
+
+                // Show the actual output in the terminal
+                if (data.output) {
+                    // Split the output into lines and display each line
+                    const outputLines = data.output.split('\n');
+                    outputLines.forEach(line => {
+                        if (line.trim()) {
+                            addPlaygroundMessage(line, data.error ? 'error' : 'success');
+                        }
+                    });
+                } else {
+                    addPlaygroundMessage('No output received', 'info');
+                }
+
+            } catch (error) {
+                console.error('Code execution error:', error);
+                addPlaygroundMessage(error.message || 'Failed to execute code', 'error');
+            } finally {
+                // Re-enable run button and restore text
+                runButton.disabled = false;
+                runText.textContent = 'Run';
+            }
+        }
+
+        function addPlaygroundMessage(message, type = 'info') {
+            const output = document.getElementById('playground-output');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `terminal-message ${type}`;
+            
+            const timestamp = new Date().toLocaleTimeString();
+            messageDiv.innerHTML = `<span class="terminal-timestamp">[${timestamp}]</span> ${message}`;
+            
+            output.appendChild(messageDiv);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        // Initialize playground when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeFileSystem();
+            initializePlayground();
+        });
+
+        // Add this new function to handle chat panel closing
+        function toggleChatPanel() {
+            const chatPanel = document.getElementById('chat-panel');
+            chatPanel.style.display = 'none';
+            // Remove active class from chat button
+            document.querySelector('.activity-bar-icon[onclick="togglePanel(\'chat\')"]').classList.remove('active');
+        }
     </script>
     <script src="workspace.js"></script>
 </body>

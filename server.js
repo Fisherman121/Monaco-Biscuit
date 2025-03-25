@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { promises as fs } from 'fs';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import axios from 'axios';
 
 // Gemini API configuration
 const GEMINI_API_KEY = 'AIzaSyAfmRTd9RWFh1oaFNhunToBi6RJeF42Kfw';
@@ -156,6 +157,130 @@ app.post('/api/chat', async (req, res) => {
     } catch (error) {
         console.error('Chat error:', error);
         res.status(500).json({ error: error.message });
+    }
+});
+
+// List of supported languages
+const SUPPORTED_LANGUAGES = [
+    "nasm", "bash", "c", "csharp", "d", "emacs-lisp", "haskell", "java", "julia", 
+    "perl", "python", "rust", "zig", "nim", "scala", "lua", "awk", "brainfuck", 
+    "lisp", "cpp", "ruby", "elixir", "go", "javascript", "kotlin", "php", 
+    "python2", "swift", "crystal", "deno", "typescript"
+];
+
+// Code execution endpoint
+app.post('/run', async (req, res) => {
+    console.log('Received run request:', req.body); // Debug log
+    const { language, code } = req.body;
+
+    // Validate input
+    if (!language || !code) {
+        console.log('Missing required fields:', { language, code }); // Debug log
+        return res.status(400).json({ error: "Language and code are required" });
+    }
+
+    // Check if the language is supported
+    if (!SUPPORTED_LANGUAGES.includes(language.toLowerCase())) {
+        console.log('Unsupported language:', language); // Debug log
+        return res.status(400).json({ 
+            error: `Unsupported language: ${language}. Supported languages: ${SUPPORTED_LANGUAGES.join(", ")}` 
+        });
+    }
+
+    try {
+        console.log('Sending request to Piston API...'); // Debug log
+        // Send request to Piston API
+        const response = await axios.post("https://emkc.org/api/v2/piston/execute", {
+            language: language.toLowerCase(),
+            version: "*",  // Use latest version available
+            files: [{ 
+                name: `main.${language.toLowerCase()}`,
+                content: code 
+            }]
+        });
+
+        console.log('Piston API response:', response.data); // Debug log
+
+        // Extract output and error from the response
+        const output = response.data.run?.output || '';
+        const error = response.data.run?.stderr || '';
+
+        // Send the execution output back to frontend
+        res.json({ 
+            output: output || error, // If no output but there's an error, use the error as output
+            error: error || null,
+            success: !error
+        });
+
+    } catch (error) {
+        console.error("Execution error:", error.message); // Log error for debugging
+        console.error("Full error:", error); // Log full error details
+
+        // Check if the error is from the API response
+        if (error.response) {
+            console.error("API Error response:", error.response.data); // Log API error details
+            return res.status(error.response.status).json({ 
+                error: error.response.data || "Execution failed. Please check your code or try again later.",
+                success: false
+            });
+        }
+
+        // General server error response
+        res.status(500).json({ 
+            error: "Internal server error. Try again later.",
+            success: false
+        });
+    }
+});
+
+// Add file system endpoints
+app.get('/api/files/current-directory', (req, res) => {
+    res.json({ directory: __dirname });
+});
+
+app.get('/api/files/check', async (req, res) => {
+    try {
+        const path = req.query.path;
+        if (!path) {
+            return res.status(400).json({ error: 'Path is required' });
+        }
+        
+        const stats = await fs.stat(path);
+        const modified = stats.mtimeMs;
+        res.json({ modified });
+    } catch (error) {
+        console.error('Error checking file:', error);
+        res.status(500).json({ error: 'Failed to check file' });
+    }
+});
+
+app.post('/api/files/save', async (req, res) => {
+    try {
+        const { path, content } = req.body;
+        if (!path || content === undefined) {
+            return res.status(400).json({ error: 'Path and content are required' });
+        }
+        
+        await fs.writeFile(path, content, 'utf-8');
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error saving file:', error);
+        res.status(500).json({ error: 'Failed to save file' });
+    }
+});
+
+app.get('/api/files/read', async (req, res) => {
+    try {
+        const path = req.query.path;
+        if (!path) {
+            return res.status(400).json({ error: 'Path is required' });
+        }
+        
+        const content = await fs.readFile(path, 'utf-8');
+        res.json({ content });
+    } catch (error) {
+        console.error('Error reading file:', error);
+        res.status(500).json({ error: 'Failed to read file' });
     }
 });
 
