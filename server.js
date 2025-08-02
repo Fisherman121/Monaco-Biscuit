@@ -6,9 +6,17 @@ import { dirname, join } from 'path';
 import { promises as fs } from 'fs';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import axios from 'axios';
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
 
 // Gemini API configuration
-const GEMINI_API_KEY = 'AIzaSyAfmRTd9RWFh1oaFNhunToBi6RJeF42Kfw';
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+if (!GEMINI_API_KEY) {
+    console.error('GEMINI_API_KEY is not set in environment variables');
+    process.exit(1);
+}
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
